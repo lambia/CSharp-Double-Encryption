@@ -1,0 +1,125 @@
+﻿@model RSAKeyPair
+@{
+    ViewData["Title"] = "Double Encryption (AES/RSA) Example WebApp";
+}
+
+<div class="text-center">
+    <h1 class="display-4">@ViewBag.Title</h1>
+    <p>Esempio di cose che fanno cose</p>
+</div>
+
+<label for="privkey">Private Key</label>
+<br />
+<textarea id="privkey" rows="3" cols="100">@Model.privateKey</textarea>
+<br />
+<label for="pubkey">Public Key</label>
+<br />
+<textarea id="pubkey" rows="3" cols="100">@Model.publicKey</textarea>
+<br />
+<label for="input">Text to encrypt/decrypt:</label>
+<br />
+<textarea id="input" name="input" type="text" rows=3 cols=100  placeholder="text to encrypt/decrypt">Messaggio di esempio</textarea>
+<br />
+<br />
+<select id="azione"><option value="cripta">cripta</option><option value="decripta">decripta</option></select>
+&nbsp;<select id="endpoint"><option value="js">javascript</option><option value="cs">C#</option></select>
+&nbsp;
+<input id="testme" type="button" value="vai" />
+&nbsp;
+<input id="invert" type="button" value="inverti" />
+<br />
+<br />
+<label for="input">Result:</label>
+<br />
+<textarea id="result" name="result" type="text" rows=3 cols=100 placeholder="Result"></textarea>
+
+<!------------------------------------------------------------------------------------->
+<!---------------------------- Bundlee da spostare ------------------------------------>
+<!------------------------------------------------------------------------------------->
+<script src="rsa/jquery.min.js"></script>
+<script src="rsa/jsencrypt.min.js"></script>
+<script type="text/javascript">
+    $(function () {
+        //$("#convertKeys").click(function () {
+        //https://superdry.apphb.com/RsaKeyConverter/XmlToPem = C# key in JS
+        //https://superdry.apphb.com/RsaKeyConverter/PemToXml = JS key in C#
+        //});
+
+        $('#invert').click(function () {
+            var message = $("#input").val();
+            var result = $("#result").val();
+            $("#input").empty().val(result);
+            $("#result").empty().val(message);
+        });
+
+        $('#testme').click(function () {
+
+            var endpoint = $("#endpoint").val();
+            var azione = $("#azione").val();
+            var pubKey = $('#pubkey').val();
+            var privKey = $('#privkey').val();
+            var message = $('#input').val();
+            var result = "";
+            if (endpoint == "js") {
+
+                if (azione == "cripta") {
+
+                    var encrypt = new JSEncrypt();
+                    encrypt.setPublicKey(pubKey);
+                    result = encrypt.encrypt(message);
+
+                } else if (azione == "decripta") {
+
+                    var decrypt = new JSEncrypt();
+                    decrypt.setPrivateKey(privKey);
+                    result = decrypt.decrypt(message);
+
+                }
+
+                $("#result").empty().val(result);
+                console.log("result: ", result);
+
+            } else if (endpoint == "cs") {
+
+                if (azione == "cripta") {
+
+                    $.post({
+                        url: "/home/encrypt/",
+                        contentType: "application/json; charset=utf-8", //invio
+                        dataType: "text", //ricevo
+                        data: JSON.stringify({
+                            key: pubKey,
+                            message: message
+                        }),
+                        success: function (data) {
+                            $('#result').val(data);
+                        },
+                        failure: function (errMsg) {
+                            console.log("Err: ", errMsg);
+                        }
+                    });
+
+                } else if (azione == "decripta") {
+
+                    $.post({
+                        url: "/home/decrypt/",
+                        contentType: "application/json; charset=utf-8",
+                        dataType: "text",
+                        data: JSON.stringify({
+                            key: privKey,
+                            message: message
+                        }),
+                        success: function (data) {
+                            $('#result').val(data);
+                        },
+                        failure: function (errMsg) {
+                            console.log("Err: ", errMsg);
+                        }
+                    });
+
+                }
+            }
+
+        });
+    });
+</script>
