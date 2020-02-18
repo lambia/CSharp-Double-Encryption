@@ -15,7 +15,8 @@
 <label for="clipubkey">Public Key del client:</label>
 <br />
 <textarea id="clipubkey" rows="3" cols="100">ancora non generata</textarea>
-<br /><br />
+<br />
+<br />
 <label for="srvprivkey">Private Key del server: (ricevuta al mount, normalmente la tiene in canna il server)</label>
 <br />
 <textarea id="srvprivkey" rows="3" cols="100">@Model.privateKey</textarea>
@@ -38,6 +39,8 @@
 <label for="result">Result:</label>
 <br />
 <textarea id="result" name="result" type="text" rows=3 cols=100 placeholder="Result"></textarea>
+<br />
+<input type="file" id="fileUpload">
 
 <!------------------------------------------------------------------------------------->
 <!---------------------------- Bundlee da spostare ------------------------------------>
@@ -46,6 +49,51 @@
 <script src="rsa/jsencrypt.min.js"></script>
 <script type="text/javascript">
     $(function () {
+
+        const inputElement = document.getElementById("fileUpload");
+        inputElement.addEventListener("change", handleFiles, false);
+
+        function handleFiles() {
+            const myFile = this.files[0];
+
+            if (myFile) {
+                var reader = new FileReader();
+                reader.readAsDataURL(myFile);
+                reader.onload = function(e) {
+                    var base64blob = e.target.result;
+                    base64blob = base64blob.split(",")[1];
+                    console.log("blob --> ", base64blob);
+
+                    
+                    var srvPubKey = $("#srvpubkey").val();
+                    var srvPrivKey = $("#srvprivkey").val();
+
+                    var encoded = encodeMessage(base64blob, 245, "|", srvPubKey);
+                    console.log("encoded ==> ", encoded);
+
+                    var params = {
+                        key: srvPrivKey,
+                        message: encoded
+                    };
+
+                    $.post({
+                        url: "/home/upload/",
+                        contentType: "application/json; charset=utf-8", //invio
+                        dataType: "text", //ricevo
+                        data: JSON.stringify(params),
+                        success: function (data) {
+                            $('#input').val(data);
+                            console.log("Server answer: ", data);
+                        },
+                        failure: function (errMsg) {
+                            console.log("Err: ", errMsg);
+                        }
+                    });
+
+                };
+            }
+                        
+        }
 
         function decodeMessage(message, chunkSeparator, privateKey) {
             var srv = new JSEncrypt({ default_key_size: 2048 });
@@ -57,7 +105,7 @@
 
             if (message == null || message.length < 1)
                 throw new ArgumentException("String can not be null or empty and chunk size should be greater than zero.");
-            
+
             for (var i = 0; i < chunkCount; i++) {
                 var r = srv.decrypt(chunks[i]);
                 result.push(r);
@@ -77,17 +125,16 @@
             var chunkCount = message.length / chunkSize + (message.length % chunkSize != 0 ? 1 : 0);
             var result = [];
 
-            for (var i = 0; i < chunkCount; i++)
-            {
+            for (var i = 0; i < chunkCount; i++) {
                 var startIndex = i * chunkSize;
                 var s = "";
 
                 if (startIndex + chunkSize >= message.length) {
                     s = message.substring(startIndex);
                 } else {
-                    s =  message.substring(startIndex, startIndex + chunkSize);
+                    s = message.substring(startIndex, startIndex + chunkSize);
                 }
-                
+
                 var r = srv.encrypt(s);
                 result.push(r);
             }
@@ -128,14 +175,14 @@
         });
 
         $("#upload").click(function () {
-            
+
             var srvPubKey = $("#srvpubkey").val();
             var srvPrivKey = $("#srvprivkey").val();
             var message = $("#input").val();
 
             var encoded = encodeMessage(message, 245, "|", srvPubKey);
             console.log("encoded ==> ", encoded);
-            
+
             var params = {
                 key: srvPrivKey,
                 message: encoded
