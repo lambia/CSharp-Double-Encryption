@@ -8,28 +8,34 @@
     <p>Esempio di cose che fanno cose</p>
 </div>
 
-<label for="privkey">Private Key</label>
+<label for="cliprivkey">Private Key del client:</label>
 <br />
-<textarea id="privkey" rows="3" cols="100">@Model.privateKey</textarea>
+<textarea id="cliprivkey" rows="3" cols="100">ancora non generata</textarea>
 <br />
-<label for="pubkey">Public Key</label>
+<label for="clipubkey">Public Key del client:</label>
 <br />
-<textarea id="pubkey" rows="3" cols="100">@Model.publicKey</textarea>
+<textarea id="clipubkey" rows="3" cols="100">ancora non generata</textarea>
+<br /><br />
+<label for="srvprivkey">Private Key del server: (ricevuta al mount, normalmente la tiene in canna il server)</label>
+<br />
+<textarea id="srvprivkey" rows="3" cols="100">@Model.privateKey</textarea>
+<br />
+<label for="srvpubkey">Public Key del server: (ricevuta al mount)</label>
+<br />
+<textarea id="srvpubkey" rows="3" cols="100">@Model.publicKey</textarea>
 <br />
 <label for="input">Text to encrypt/decrypt:</label>
 <br />
-<textarea id="input" name="input" type="text" rows=3 cols=100  placeholder="text to encrypt/decrypt">Messaggio di esempio</textarea>
+<textarea id="input" name="input" type="text" rows=3 cols=100 placeholder="text to encrypt/decrypt">Messaggio di esempio</textarea>
 <br />
 <br />
-<select id="azione"><option value="cripta">cripta</option><option value="decripta">decripta</option></select>
-&nbsp;<select id="endpoint"><option value="js">javascript</option><option value="cs">C#</option></select>
 &nbsp;
-<input id="testme" type="button" value="vai" />
+<input id="download" type="button" value="download test" />
 &nbsp;
-<input id="invert" type="button" value="inverti" />
+<input id="upload" type="button" value="upload test" />
 <br />
 <br />
-<label for="input">Result:</label>
+<label for="result">Result:</label>
 <br />
 <textarea id="result" name="result" type="text" rows=3 cols=100 placeholder="Result"></textarea>
 
@@ -40,86 +46,117 @@
 <script src="rsa/jsencrypt.min.js"></script>
 <script type="text/javascript">
     $(function () {
-        //$("#convertKeys").click(function () {
-        //https://superdry.apphb.com/RsaKeyConverter/XmlToPem = C# key in JS
-        //https://superdry.apphb.com/RsaKeyConverter/PemToXml = JS key in C#
-        //});
 
-        $('#invert').click(function () {
-            var message = $("#input").val();
-            var result = $("#result").val();
-            $("#input").empty().val(result);
-            $("#result").empty().val(message);
-        });
+        function decodeMessage(message, chunkSeparator, privateKey) {
+            var srv = new JSEncrypt({ default_key_size: 2048 });
+            srv.setPrivateKey(privateKey);
 
-        $('#testme').click(function () {
+            var chunks = message.split(chunkSeparator);
+            var chunkCount = chunks.length;
+            var result = [];
 
-            var endpoint = $("#endpoint").val();
-            var azione = $("#azione").val();
-            var pubKey = $('#pubkey').val();
-            var privKey = $('#privkey').val();
-            var message = $('#input').val();
-            var result = "";
-            if (endpoint == "js") {
-
-                if (azione == "cripta") {
-
-                    var encrypt = new JSEncrypt();
-                    encrypt.setPublicKey(pubKey);
-                    result = encrypt.encrypt(message);
-
-                } else if (azione == "decripta") {
-
-                    var decrypt = new JSEncrypt();
-                    decrypt.setPrivateKey(privKey);
-                    result = decrypt.decrypt(message);
-
-                }
-
-                $("#result").empty().val(result);
-                console.log("result: ", result);
-
-            } else if (endpoint == "cs") {
-
-                if (azione == "cripta") {
-
-                    $.post({
-                        url: "/home/encrypt/",
-                        contentType: "application/json; charset=utf-8", //invio
-                        dataType: "text", //ricevo
-                        data: JSON.stringify({
-                            key: pubKey,
-                            message: message
-                        }),
-                        success: function (data) {
-                            $('#result').val(data);
-                        },
-                        failure: function (errMsg) {
-                            console.log("Err: ", errMsg);
-                        }
-                    });
-
-                } else if (azione == "decripta") {
-
-                    $.post({
-                        url: "/home/decrypt/",
-                        contentType: "application/json; charset=utf-8",
-                        dataType: "text",
-                        data: JSON.stringify({
-                            key: privKey,
-                            message: message
-                        }),
-                        success: function (data) {
-                            $('#result').val(data);
-                        },
-                        failure: function (errMsg) {
-                            console.log("Err: ", errMsg);
-                        }
-                    });
-
-                }
+            if (message == null || message.length < 1)
+                throw new ArgumentException("String can not be null or empty and chunk size should be greater than zero.");
+            
+            for (var i = 0; i < chunkCount; i++) {
+                var r = srv.decrypt(chunks[i]);
+                result.push(r);
             }
 
+            return result.join("");
+        }
+
+        function encodeMessage(message, chunkSize, chunkSeparator, publicKey) {
+            var srv = new JSEncrypt({ default_key_size: 2048 });
+            srv.setPublicKey(publicKey);
+
+            //key 2048b => chunk 1960b = 245B
+            if (message == null || message.length < 1)
+                throw new ArgumentException("String can not be null or empty and chunk size should be greater than zero.");
+
+            var chunkCount = message.length / chunkSize + (message.length % chunkSize != 0 ? 1 : 0);
+            var result = [];
+
+            for (var i = 0; i < chunkCount; i++)
+            {
+                var startIndex = i * chunkSize;
+                var s = "";
+
+                if (startIndex + chunkSize >= message.length) {
+                    s = message.substring(startIndex);
+                } else {
+                    s =  message.substring(startIndex, startIndex + chunkSize);
+                }
+                
+                var r = srv.encrypt(s);
+                result.push(r);
+            }
+
+            return result.join(chunkSeparator) + chunkSeparator;
+        }
+
+        $("#download").click(function () {
+
+            var srv = new JSEncrypt({ default_key_size: 2048 });
+            var privKey = srv.getPrivateKey();
+            var pubKey = srv.getPublicKey();
+            $("#cliprivkey").val(privKey);
+            $("#clipubkey").val(pubKey);
+
+            var params = {
+                key: pubKey,
+                message: $("#input").val()
+            };
+
+            $.post({
+                url: "/home/download/",
+                contentType: "application/json; charset=utf-8", //invio
+                dataType: "text", //ricevo
+                data: JSON.stringify(params),
+                success: function (data) {
+                    $('#input').val(data);
+                    console.log("Received: ", data);
+
+                    var decoded = decodeMessage(data, "|", privKey);
+                    console.log("decoded ==> ", decoded);
+                },
+                failure: function (errMsg) {
+                    console.log("Err: ", errMsg);
+                }
+            });
+
         });
+
+        $("#upload").click(function () {
+            
+            var srvPubKey = $("#srvpubkey").val();
+            var srvPrivKey = $("#srvprivkey").val();
+            var message = $("#input").val();
+
+            var encoded = encodeMessage(message, 245, "|", srvPubKey);
+            console.log("encoded ==> ", encoded);
+            
+            var params = {
+                key: srvPrivKey,
+                message: encoded
+            };
+
+            $.post({
+                url: "/home/upload/",
+                contentType: "application/json; charset=utf-8", //invio
+                dataType: "text", //ricevo
+                data: JSON.stringify(params),
+                success: function (data) {
+                    $('#input').val(data);
+                    console.log("Server answer: ", data);
+                },
+                failure: function (errMsg) {
+                    console.log("Err: ", errMsg);
+                }
+            });
+
+        });
+
+
     });
 </script>

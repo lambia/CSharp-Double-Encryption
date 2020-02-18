@@ -4,6 +4,7 @@ using System.Data;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Org.BouncyCastle.Asn1.Pkcs;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Crypto;
@@ -20,18 +21,40 @@ namespace DoubleEncryption.Services
     {
         public RSAKeyPair handshake()
         {
-            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(1024);
-            RSAKeyPair chiaviXML = new RSAKeyPair()
-            {
-                publicKey = rsa.ToXmlString(false),
-                privateKey = rsa.ToXmlString(true)
-            };
-            RSAKeyPair chiaviPEM = new RSAKeyPair()
+            RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(2048);
+            //RSAKeyPair chiaviXML = new RSAKeyPair()
+            //{
+            //    publicKey = rsa.ToXmlString(false),
+            //    privateKey = rsa.ToXmlString(true)
+            //};
+            //RSAKeyPair chiaviPEM = new RSAKeyPair()
+            //{
+            //    publicKey = PublicXML2PEM(rsa),
+            //    privateKey = PrivateXML2PEM(rsa)
+            //};
+
+            RSAKeyPair chiavi = new RSAKeyPair()
             {
                 publicKey = PublicXML2PEM(rsa),
-                privateKey = PrivateXML2PEM(rsa)
+                privateKey = rsa.ToXmlString(true)
             };
-            return chiaviPEM;
+            return chiavi;
+        }
+
+
+        public static IEnumerable<string> Split(string str, int chunkSize)
+        {
+            if (string.IsNullOrEmpty(str) || chunkSize < 1)
+                throw new ArgumentException("String can not be null or empty and chunk size should be greater than zero.");
+            var chunkCount = str.Length / chunkSize + (str.Length % chunkSize != 0 ? 1 : 0);
+            for (var i = 0; i < chunkCount; i++)
+            {
+                var startIndex = i * chunkSize;
+                if (startIndex + chunkSize >= str.Length)
+                    yield return str.Substring(startIndex);
+                else
+                    yield return str.Substring(startIndex, chunkSize);
+            }
         }
 
         public string encrypt(string publicKey, string text, bool pem)
@@ -60,10 +83,22 @@ namespace DoubleEncryption.Services
             return Convert.ToBase64String(encryptedData);
         }
 
+        public string EncryptLongText(string publicKey, string text, bool pem)
+        {
+            var strOutput = "";
+            var stringParts = Split(text, 245);
+            foreach (var stringPart in stringParts)
+            {
+                strOutput += encrypt(publicKey, stringPart, pem) + "|";
+            }
+            return strOutput;
+        }
+        
         public string decrypt(string privateKey, string text, bool pem)
         {
             // read the encrypted bytes from the file
             byte[] dataToDecrypt = Convert.FromBase64String(text);
+
 
             // Create an array to store the decrypted data in it
             byte[] decryptedData;
@@ -82,6 +117,17 @@ namespace DoubleEncryption.Services
             // Get the string value from the decryptedData byte array
             UTF8Encoding byteConverter = new UTF8Encoding();
             return byteConverter.GetString(decryptedData);
+        }
+
+        public string DecryptLongText(string privateKey, string text, bool pem)
+        {
+            var strOutput = "";
+            var stringParts = Regex.Split(text, @"\|");
+            foreach (var stringPart in stringParts)
+            {
+                if (stringPart != "") strOutput += decrypt(privateKey, stringPart, pem);
+            }
+            return strOutput;
         }
 
         private static string PrivateXML2PEM(RSACryptoServiceProvider rsa)

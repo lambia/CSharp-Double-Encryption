@@ -27,24 +27,26 @@ namespace DoubleEncryption.Controllers
             return View(chiavi);
         }
 
-        public string Encrypt([FromBody] RequestModel payload)
+        //Client genera chiavi. Server cifra con la pub del client e risponde. Client decifra con propria private.
+        [HttpPost]
+        public string Download([FromBody] RequestModel payload)
         {
+            //ToDo #1: prendere file da FS e cifrarlo
             RSAService srv = new RSAService();
-            string message = srv.encrypt(payload.Key, payload.Message, true);
-
-            return message;
-        }
-        public string Decrypt([FromBody] RequestModel payload)
-        {
-            RSAService srv = new RSAService();
-            string message = srv.decrypt(payload.Key, payload.Message, true);
+            string message = srv.EncryptLongText(payload.Key, payload.Message, true);
 
             return message;
         }
 
-        public IActionResult Privacy()
+        //Server genera chiavi e invia pub. Client uploada. Server decifra con propria private.
+        [HttpPost]
+        public string Upload([FromBody] RequestModel payload)
         {
-            return View();
+            //ToDo #2: tenere in canna le private key nell'istanza
+            RSAService srv = new RSAService();
+            string message = srv.DecryptLongText(payload.Key, payload.Message, false);
+
+            return message;
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
