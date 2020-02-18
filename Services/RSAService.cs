@@ -93,13 +93,33 @@ namespace DoubleEncryption.Services
             }
             return strOutput;
         }
-        
+
+        public byte[] padByteArray(byte[] byteArray, byte newByte, int newLength)
+        {
+            byte[] result = new byte[newLength];
+            int oldLength = byteArray.Length;
+            int newBytesNumber = newLength - oldLength;
+
+            byteArray.CopyTo(result, newBytesNumber);
+
+            for (int i = 0; i < newBytesNumber; i++)
+            {
+                result[i] = (byte)newByte;
+            }
+
+            return result;
+        }
+
+
         public string decrypt(string privateKey, string text, bool pem)
         {
-            // read the encrypted bytes from the file
             byte[] dataToDecrypt = Convert.FromBase64String(text);
 
-
+            if(dataToDecrypt.Length<256)
+            {
+                dataToDecrypt = padByteArray(dataToDecrypt, (byte)0x00, 256);
+            }
+            
             // Create an array to store the decrypted data in it
             byte[] decryptedData;
             using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
@@ -114,19 +134,50 @@ namespace DoubleEncryption.Services
                 decryptedData = rsa.Decrypt(dataToDecrypt, false);
             }
 
+
             // Get the string value from the decryptedData byte array
             UTF8Encoding byteConverter = new UTF8Encoding();
-            return byteConverter.GetString(decryptedData);
+            string decryptedBase64 = byteConverter.GetString(decryptedData);
+
+            return decryptedBase64;
         }
 
         public string DecryptLongText(string privateKey, string text, bool pem)
         {
             var strOutput = "";
-            var stringParts = Regex.Split(text, @"\|");
-            foreach (var stringPart in stringParts)
+            var stringParts = Regex.Split(text, @"\|xGSy\|");
+            bool inError = false;
+            
+            for (int i = 0; i < stringParts.Length; i++)
             {
-                if (stringPart != "") strOutput += decrypt(privateKey, stringPart, pem);
+                string stringPart = stringParts[i];
+                if (stringPart != "")
+                {
+                    string buffer = decrypt(privateKey, stringPart, pem);
+                    if(buffer==null)
+                    {
+                        strOutput = "Errore chunk: " + i.ToString() + " - Contenuto: " + stringPart;
+                        inError = true;
+                        break;
+                    } else
+                    {
+                        strOutput += buffer;
+                    }
+                }
             }
+
+            //Vecchio ciclo senza debug
+            //foreach (var stringPart in stringParts)
+            //{
+            //    if (stringPart != "") strOutput += decrypt(privateKey, stringPart, pem);
+            //}
+
+            if(!inError)
+            {
+                byte[] decryptedBinary = Convert.FromBase64String(strOutput);
+                File.WriteAllBytes("c:\\tmp\\prova.png", decryptedBinary);
+            }
+
             return strOutput;
         }
 
