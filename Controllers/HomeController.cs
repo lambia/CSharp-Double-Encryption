@@ -45,6 +45,7 @@ namespace DoubleEncryption.Controllers
             //ToDo #2: tenere in canna le private key nell'istanza
             RSAService srv = new RSAService();
             string message = srv.DecryptLongText(payload.Key, payload.Message, false);
+            srv.WriteFile(message, payload.Filename);
 
             return message;
         }

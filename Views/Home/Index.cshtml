@@ -53,6 +53,13 @@
         const inputElement = document.getElementById("fileUpload");
         inputElement.addEventListener("change", handleFiles, false);
 
+        const _chunkSizes = [53, 117, 245, 501];
+        const _keySizes = [512, 1024, 2048, 4096];
+
+        const _chunkSize = _chunkSizes[2];
+        const _keySize = _keySizes[2];
+        const _gs = "|";
+
         function handleFiles() {
             const myFile = this.files[0];
 
@@ -62,28 +69,45 @@
                 reader.onload = function(e) {
                     var base64blob = e.target.result;
                     base64blob = base64blob.split(",")[1];
-                    console.log("blob --> ", base64blob);
+                    console.log("[BLOB] originale length = ", base64blob.length);
 
-                    
                     var srvPubKey = $("#srvpubkey").val();
                     var srvPrivKey = $("#srvprivkey").val();
+                    
+                    var start = window.performance.now(); //DEBUG
+                    var srv = new JSEncrypt({ default_key_size: _keySize });
+                    srv.setPublicKey(srvPubKey);
+                    var end = window.performance.now(); //DEBUG
+                    console.log("Tempo chiave: ", (end - start)/1000); //DEBUG
 
-                    var encoded = encodeMessage(base64blob, 245, "|xGSy|", srvPubKey);
-                    console.log("encoded ==> ", encoded);
+                    //console.time("encodeMessage");
+                    start = window.performance.now(); //DEBUG
+
+                    var encoded = encodeMessage(base64blob, _chunkSize, _gs, srv);
+
+                    //console.timeEnd("encodeMessage");
+                    end = window.performance.now(); //DEBUG
+                    console.log("Tempo encryption: ", (end - start)/1000); //DEBUG
+
+                    console.log("[RSA] encoded length ==> ", encoded.length);
 
                     var params = {
                         key: srvPrivKey,
-                        message: encoded
+                        message: encoded,
+                        filename: myFile.name
                     };
 
+                    start = window.performance.now(); //DEBUG
                     $.post({
                         url: "/home/upload/",
                         contentType: "application/json; charset=utf-8", //invio
                         dataType: "text", //ricevo
                         data: JSON.stringify(params),
                         success: function (data) {
-                            $('#input').val(data);
-                            console.log("Server answer: ", data);
+                            //$('#input').val(data);
+                            end = window.performance.now(); //DEBUG
+                            console.log("Tempo C#: ", (end - start)/1000); //DEBUG
+                            console.log("[BLOB] server length = ", data.length);
                         },
                         failure: function (errMsg) {
                             console.log("Err: ", errMsg);
@@ -95,9 +119,7 @@
                         
         }
 
-        function decodeMessage(message, chunkSeparator, privateKey) {
-            var srv = new JSEncrypt({ default_key_size: 2048 });
-            srv.setPrivateKey(privateKey);
+        function decodeMessage(message, chunkSeparator, srv) {
 
             var chunks = message.split(chunkSeparator);
             var chunkCount = chunks.length;
@@ -114,15 +136,11 @@
             return result.join("");
         }
 
-        function encodeMessage(message, chunkSize, chunkSeparator, publicKey) {
-            var srv = new JSEncrypt({ default_key_size: 2048 });
-            srv.setPublicKey(publicKey);
-
-            //key 2048b => chunk 1960b = 245B
+        function encodeMessage(message, chunkSize, chunkSeparator, srv) {
             if (message == null || message.length < 1)
                 throw new ArgumentException("String can not be null or empty and chunk size should be greater than zero.");
 
-            var chunkCount = parseInt(message.length / chunkSize + (message.length % chunkSize != 0 ? 1 : 0));
+            var chunkCount = message.length / chunkSize + (message.length % chunkSize != 0 ? 1 : 0);
             var result = [];
 
             for (var i = 0; i < chunkCount; i++) {
@@ -134,16 +152,8 @@
                 } else {
                     s = message.substring(startIndex, startIndex + chunkSize);
                 }
-                if (s.length != 245) {
-                    console.log("Chunk n. " + i + " length is: " + s.length + "/245");
-                }
 
                 var r = srv.encrypt(s);
-                if (r.length < 344) {
-                    console.log("Encrypted Chunk n. " + i + " length is: " + s.length + "/344");
-                    //debugger;
-                    //r = r.padEnd(344, "=");
-                }
                 result.push(r);
             }
 
@@ -152,7 +162,7 @@
 
         $("#download").click(function () {
 
-            var srv = new JSEncrypt({ default_key_size: 2048 });
+            var srv = new JSEncrypt({ default_key_size: _keySize });
             var privKey = srv.getPrivateKey();
             var pubKey = srv.getPublicKey();
             $("#cliprivkey").val(privKey);
@@ -171,8 +181,8 @@
                 success: function (data) {
                     $('#input').val(data);
                     console.log("Received: ", data);
-
-                    var decoded = decodeMessage(data, "|", privKey);
+            
+                    var decoded = decodeMessage(data, _gs, srv);
                     console.log("decoded ==> ", decoded);
                 },
                 failure: function (errMsg) {
@@ -187,9 +197,11 @@
             var srvPubKey = $("#srvpubkey").val();
             var srvPrivKey = $("#srvprivkey").val();
             var message = $("#input").val();
-
-            var encoded = encodeMessage(message, 245, "|", srvPubKey);
-            console.log("encoded ==> ", encoded);
+                    
+            var srv = new JSEncrypt({ default_key_size: _keySize });
+            srv.setPublicKey(srvPubKey);
+            var encoded = encodeMessage(message, _chunkSize, _gs, srv);
+            //console.log("encoded ==> ", encoded);
 
             var params = {
                 key: srvPrivKey,
@@ -202,8 +214,9 @@
                 dataType: "text", //ricevo
                 data: JSON.stringify(params),
                 success: function (data) {
-                    $('#input').val(data);
-                    console.log("Server answer: ", data);
+                    //$('#input').val(data);
+                    //console.log("Server answer: ", data);
+                    console.log("Server answered", data.length);
                 },
                 failure: function (errMsg) {
                     console.log("Err: ", errMsg);
