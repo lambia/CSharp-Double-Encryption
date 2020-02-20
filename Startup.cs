@@ -9,10 +9,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-using RSAWebApp.Models; //ToDev: forse non serve
-using RSAWebApp.Services; //ToDev: si pu� importare direttamente il singolo service di cui c'� bisogno
+using DoubleEncryption.Models; //ToDev: forse non serve
+using DoubleEncryption.Services; //ToDev: si pu� importare direttamente il singolo service di cui c'� bisogno
 
-namespace RSAWebApp
+namespace DoubleEncryption
 {
     public class Startup
     {

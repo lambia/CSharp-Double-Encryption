@@ -8,6 +8,10 @@
     <p>Esempio di cose che fanno cose</p>
 </div>
 <div>Public Key: @Model.publicKey</div>
+<br />
+<br />
+<input type="file" id="fileUpload"><br /><br />
+<input type="button" id="fileDownload" value="download" />
 
 <!------------------------------------------------------------------------------------->
 <!----------------------------- Da spostare in Bundle --------------------------------->
@@ -15,9 +19,111 @@
 <script src="rsa/jquery.min.js"></script>
 @*<script src="rsa/jsencrypt.min.js"></script>*@
 <script type="text/javascript">
-    $(function () {
+    //$(function () {
         //let srv = window.crypto.subtle;
-                
+        
+        document.getElementById("fileUpload").addEventListener("change", handleUpload, false);
+        document.getElementById("fileDownload").addEventListener("click", handleDownload, false);
+
+        function benchmark(what) {
+            var start = window.performance.now();
+            what();
+            var end = window.performance.now();
+            console.log("Tempo chiave: ", (end - start)/1000);
+        }
+
+        async function handleDownload(filename = "prova.png", fileType = "image/png") {
+            let key = await aesGenerateKey();
+            let keydata = await aesExportKey(key);
+
+            let vector = window.crypto.getRandomValues(new Uint8Array(16));
+            let vectorB64 = btoa(String.fromCharCode.apply(null, vector));
+            //in contrario è:   new Uint8Array(atob(vectorB64).split("").map(function(c) { return c.charCodeAt(0); }));
+
+            //let keyB64 = keydata.k;//.replace("-","+").replace("_","/");
+            let keyB64 = btoa(String.fromCharCode(...new Uint8Array(keydata)));
+            
+            let responseB64 = await callApi(filename, keyB64, vectorB64, "download");
+            let responseRaw = atob(responseB64);
+            let responseRawLength = responseRaw.length;
+            let responseByte = new Uint8Array(new ArrayBuffer(responseRawLength));
+            
+            for(i = 0; i < responseRawLength; i++) {
+                responseByte[i] = responseRaw.charCodeAt(i);
+            }
+
+            //[OK] responseByte = array di byte ancora crittografati
+            console.log("responseByte",responseByte);
+
+            let plainResponseByteB64 = await aesDecrypt(responseByte.buffer, key, vector);
+            //[OK?] plainResponseByte = array di byte in chiaro (che rappresentano la stringa base64 del file)
+            
+            let plainResponseByteArray = new Uint8Array(plainResponseByteB64);
+            console.log("plainResponseByteB64", plainResponseByteB64);
+            console.log("plainResponseByteArray", plainResponseByteArray);
+
+            let plainResponseB64String = new TextDecoder("utf-8").decode(plainResponseByteArray);
+            console.log("plainResponseB64String", plainResponseB64String);
+
+            //let plainBase64String = String.fromCharCode.apply(null, plainResponseByteArray); //stringa, base-encoded
+            //console.log("plainBase64String", plainBase64String);
+
+            let byteCharacters = atob(plainResponseB64String); //separo per singoli caratteri => stringa, rappresenta i byte del blob
+
+            let byteArray = new Uint8Array(new ArrayBuffer(byteCharacters.length)); //creo un array di byte
+            for (i = 0; i < byteCharacters.length; i++) {
+                byteArray[i] = byteCharacters.charCodeAt(i); //prendo i caratteri e ne pusho il relativo byte nell'array
+            }
+
+            var blob=new Blob([byteArray], {type: fileType});
+            //var blob = b64toBlob(plainResponseB64String, fileType);
+            var link=document.createElement('a');
+            link.href=window.URL.createObjectURL(blob);
+            link.download=filename;
+            link.click();
+    }
+
+    /*
+        function b64toBlob(b64Data, contentType = '', sliceSize = 512) {
+            const byteCharacters = atob(b64Data);
+            const byteArrays = [];
+ 
+            for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+                const slice = byteCharacters.slice(offset, offset + sliceSize);
+ 
+                const byteNumbers = new Array(slice.length);
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+ 
+                const byteArray = new Uint8Array(byteNumbers);
+ 
+                byteArrays.push(byteArray);
+            }
+ 
+            const blob = new Blob(byteArrays, {type: contentType});
+            return blob;
+        }
+    */
+        function handleUpload() {
+            const myFile = this.files[0];
+
+            if (myFile) {
+                var reader = new FileReader();
+                reader.readAsDataURL(myFile);
+                reader.onload = function(e) {
+                    var base64blob = e.target.result;
+                    base64blob = base64blob.split(",")[1];
+                    console.log("[BLOB] originale length = ", base64blob.length);
+
+                    benchmark(function () {
+
+                    });
+                };
+            }
+                        
+        }
+
         async function aesGenerateKey() {
             return window.crypto.subtle.generateKey({ name: "AES-CBC", length: 256 }, true, ["encrypt", "decrypt"]);
         }
@@ -25,7 +131,7 @@
         async function aesExportKey(key) { //jwk o raw
             return window.crypto.subtle.exportKey("raw", key);
         }
-        
+
         async function callApi(data, key, vector, action) {
             let params = {
                 Key: key, //es. "hbcMV6bdumNyMm5wVRY7hsgpVy/EyErwr8hOi8MK0KM="
@@ -35,7 +141,7 @@
             };
 
             return $.post({
-                url: "/crypto/"+action+"/",
+                url: "/crypto/" + action + "/",
                 contentType: "application/json; charset=utf-8", //invio
                 dataType: "text", //ricevo
                 data: JSON.stringify(params)//,
@@ -49,7 +155,7 @@
                 //}
             });
         }
-        
+
         async function aesDecrypt(data, key, vector) {
             return window.crypto.subtle.decrypt(
                 {
@@ -70,7 +176,7 @@
             //    return Promise.reject(err);
             //});
         }
-        
+
         async function aesEncrypt(data, key, vector) {
 
             return window.crypto.subtle.encrypt(
@@ -84,30 +190,31 @@
                 key, //from generateKey or importKey above
                 data //ArrayBuffer of data you want to encrypt
             );
-                //.then(function (encrypted) {
-                //    //returns an ArrayBuffer containing the encrypted data
-                //    return Promise.resolve({ vector: vector, data: encrypted });
-                //    console.log(new Uint8Array(encrypted));
-                //})
-                //.catch(function (err) {
-                //    console.error(err);
-                //    return Promise.reject(err);
-                //});
+            //.then(function (encrypted) {
+            //    //returns an ArrayBuffer containing the encrypted data
+            //    return Promise.resolve({ vector: vector, data: encrypted });
+            //    console.log(new Uint8Array(encrypted));
+            //})
+            //.catch(function (err) {
+            //    console.error(err);
+            //    return Promise.reject(err);
+            //});
         }
 
         function strToArrayBuffer(str) {
-          var buf = new ArrayBuffer(str.length * 2);
-          var bufView = new Uint16Array(buf);
-          for (var i = 0, strLen = str.length; i < strLen; i++) {
-            bufView[i] = str.charCodeAt(i);
-          }
-          return buf;
+            var buf = new ArrayBuffer(str.length * 2);
+            var bufView = new Uint16Array(buf);
+            for (var i = 0, strLen = str.length; i < strLen; i++) {
+                bufView[i] = str.charCodeAt(i);
+            }
+            return buf;
         }
         function arrayBufferToString(buf) {
-          return String.fromCharCode.apply(null, new Uint16Array(buf));
+            return String.fromCharCode.apply(null, new Uint16Array(buf));
         }
 
         //Funzioni: aesGenerateKey aesExportKey callApi aesDecrypt aesEncrypt
+        /*
         aesGenerateKey().then(key => {
             console.log("key: ", key);
             window.key = key //ToDev: non salvare nel window, ma passa nella catena di promise (?)
@@ -139,8 +246,8 @@
             console.log("apidata: ", apidata);
             //let dataByte = strToArrayBuffer(data);
 
-            //var uintArray = Base64Binary.decode(base64_string);  
-            //var byteArray = Base64Binary.decodeArrayBuffer(base64_string); 
+            //var uintArray = Base64Binary.decode(base64_string);
+            //var byteArray = Base64Binary.decodeArrayBuffer(base64_string);
             //let dataByte = Uint8Array.from(atob(apidata), c => c.charCodeAt(0))
             let dataByte = Uint8Array.from(apidata, c => c.charCodeAt(0))
             console.log("dataByte", dataByte);
@@ -152,11 +259,11 @@
             let result = String.fromCharCode.apply(null, new Uint8Array(finalResult));
             console.log("result: ", result);
 
-        }).catch (err => {
+        }).catch(err => {
             console.error(err);
         });
-
+        */
 
         //REPO da https://github.com/diafygi/webcrypto-examples#aes-cbc
-    });
+    //});
 </script>

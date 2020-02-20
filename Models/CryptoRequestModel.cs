@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace RSAWebApp.Models
+namespace DoubleEncryption.Models
 {
     public class CryptoRequestModel
     {

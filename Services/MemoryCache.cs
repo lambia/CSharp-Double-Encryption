@@ -4,9 +4,9 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
-using RSAWebApp.Models;
+using DoubleEncryption.Models;
 
-namespace RSAWebApp.Services
+namespace DoubleEncryption.Services
 {
     public static class MemoryCache
     {

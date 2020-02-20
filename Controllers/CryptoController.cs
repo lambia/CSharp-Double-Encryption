@@ -5,10 +5,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
-using RSAWebApp.Models;
-using RSAWebApp.Services;
+using DoubleEncryption.Models;
+using DoubleEncryption.Services;
 
-namespace RSAWebApp.Controllers
+namespace DoubleEncryption.Controllers
 {
     public class CryptoController : Controller
     {
@@ -40,11 +40,13 @@ namespace RSAWebApp.Controllers
             string vectorAES = srv.rsaDecrypt(payload.vector);
             string file = srv.aesEncrypt(payload.file, keyAES, vectorAES);
             *///ToDev: decommenta
-
-            byte[] file = srv.aesEncrypt(payload.File, payload.Key, payload.Vector); //ToDev: rimuovi
+            
+            byte[] fileBytes = srv.aesEncrypt(payload.File, payload.Key, payload.Vector); //ToDev: rimuovi
+            string fileString = Convert.ToBase64String(fileBytes);
             //string response = Newtonsoft.Json.JsonConvert.SerializeObject(new { file = file });
 
-            return Encoding.UTF7.GetString(file);
+            //return Encoding.UTF7.GetString(file);
+            return fileString;
         }
 
         [HttpPost]

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using System.Text;
 using System.IO;
 
-using RSAWebApp.Models;
+using DoubleEncryption.Models;
 using System.Security.Cryptography;
 using Org.BouncyCastle.Asn1.Pkcs;
 using Org.BouncyCastle.Asn1.X509;
@@ -16,7 +16,7 @@ using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.X509;
 
-namespace RSAWebApp.Services
+namespace DoubleEncryption.Services
 {
     public class CryptoService
     {
@@ -108,13 +108,15 @@ namespace RSAWebApp.Services
             return decB64;
         }
 
-        public byte[] aesEncrypt(string plainData, string key, string vector)
+        public byte[] aesEncrypt(string filename, string key, string vector)
         {
             //byte[] keyBytes = Encoding.ASCII.GetBytes(key);
             byte[] keyBytes = Convert.FromBase64String(key);
             byte[] vectorBytes = Convert.FromBase64String(vector);
 
-            byte[] encrypted = aesEncryptString(plainData, keyBytes, vectorBytes);
+            string fileB64 = readFile(filename);
+
+            byte[] encrypted = aesEncryptString(fileB64, keyBytes, vectorBytes);
             //string result = Convert.ToBase64String(encrypted);
             //string result = Newtonsoft.Json.JsonConvert.SerializeObject(new { file = encrypted});
 
@@ -219,6 +221,12 @@ namespace RSAWebApp.Services
         {
             byte[] decryptedBinary = Convert.FromBase64String(fileString);
             File.WriteAllBytes(_path + fileName, decryptedBinary);
+        }
+        public string readFile(string fileName)
+        {
+            byte[] file = File.ReadAllBytes(_path + fileName);
+            string fileB64 = Convert.ToBase64String(file);
+            return fileB64;
         }
 
     }
