@@ -9,13 +9,19 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace DoubleEncryption
+using RSAWebApp.Models; //ToDev: forse non serve
+using RSAWebApp.Services; //ToDev: si pu� importare direttamente il singolo service di cui c'� bisogno
+
+namespace RSAWebApp
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
+        private readonly IWebHostEnvironment _env;
+
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
+            _env = env;
         }
 
         public IConfiguration Configuration { get; }
@@ -52,6 +58,8 @@ namespace DoubleEncryption
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");
             });
+
+            Console.WriteLine("RSA Public Key del Server: {0}", MemoryCache.keyPair.publicKey);
         }
     }
 }
