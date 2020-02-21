@@ -5,7 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
-namespace RSAWebApp.Services
+namespace DoubleEncryption.Services
 {
     public class AESService
     {

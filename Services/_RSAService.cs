@@ -13,7 +13,7 @@ using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.X509;
-using RSAWebApp.Models;
+using DoubleEncryption.Models;
 
 /*
  * VECCHIO SERVICE PER RSA
@@ -25,7 +25,7 @@ using RSAWebApp.Models;
  * 
  */
 
-namespace RSAWebApp.Services
+namespace DoubleEncryption.Services
 {
     public class _RSAService
     {

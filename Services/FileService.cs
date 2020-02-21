@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace RSAWebApp.Services
+namespace DoubleEncryption.Services
 {
     public class FileService
     {
