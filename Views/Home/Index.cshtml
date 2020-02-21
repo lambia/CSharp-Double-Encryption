@@ -50,18 +50,6 @@
     function BaseToWebBase(data) {
         return data.replace("+", "-").replace("/", "_");
     }
-
-    function ArrayBufferToBaseLittle(data) {
-        return btoa(String.fromCharCode(...new Uint8Array(data)));
-    }
-
-    function Uint8ArrayToBase(data) {
-        return btoa(String.fromCharCode.apply(null, data));
-    }
-
-    function BaseToUint8ArrayLittle(data) { //Vale solo per stringhe o piccoli binary altrimenti memory overflow
-        return new Uint8Array(atob(data).split("").map(function(c) { return c.charCodeAt(0); }));
-    }
     
     function BaseToUint8Array(data) {
         let dataLength = data.length;
@@ -73,8 +61,12 @@
 
         return dataBytes;
     }
+    
+    /************************ TRE FUNZIONI DIVERSE MA UGUALI ****************************/
+    //ToDev: Unire, magari usando The readAsArrayBuffer/readAsText di FileReader. Unirle comporterebbe upload di dimensioni maggiori
 
     function ArrayBufferToBase(data) { //data = ArrayBuffer di un base64
+        console.log("ArrayBufferToBase: ", data);
         let dataByteArray = new Uint8Array(data); //ByteArray del base64
         let dataString = new TextDecoder("utf-8").decode(dataByteArray); //Stringa base64
         //let dataString = String.fromCharCode.apply(null, dataByteArray); //Stringa base64
@@ -82,14 +74,20 @@
     }
 
     function arrayBufferToBase64(buffer) {
+        console.log("arrayBufferToBase64: ", buffer);
         let binary = '';
         let bytes = new Uint8Array(buffer);
         let len = bytes.byteLength;
         for (let i = 0; i < len; i++) {
             binary += String.fromCharCode(bytes[i]);
         }
-        return window.btoa(binary);
+        return btoa(binary);
     }
+
+    function Uint8ArrayToBase(data) {
+        return btoa(String.fromCharCode.apply(null, data));
+    }
+    /**********************************************************************/
 
     function BaseToBlob(data, fileType) {
         let byteCharacters = atob(data); //stringa, rappresenta i byte del blob
@@ -109,7 +107,7 @@
         link.href = window.URL.createObjectURL(blob);
         link.download = filename;
         link.click();
-        //ToDev: elimina il link
+        //ToDev: elimina il link dopo l'uso
     }
 
     /* APP */
@@ -129,11 +127,11 @@
         });
     }
 
-    async function handleDownload(e, filename = "1790kb.pdf", fileType = null) {
+    async function handleDownload(e, filename = "kb1790.pdf", fileType = null) {
         //AES INIT
         let key = await aesGenerateKey();
         let keydata = await aesExportKey(key);
-        let keyB64 = ArrayBufferToBaseLittle(keydata);
+        let keyB64 = arrayBufferToBase64(keydata);
         let vector = window.crypto.getRandomValues(new Uint8Array(16));
         let vectorB64 = Uint8ArrayToBase(vector); 
 
