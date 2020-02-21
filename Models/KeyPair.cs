@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace DoubleEncryption.Models
 {
-    public class RSAKeyPair
+    public class KeyPair
     {
         public string publicKey{ get; set; }
         public string privateKey { get; set; }

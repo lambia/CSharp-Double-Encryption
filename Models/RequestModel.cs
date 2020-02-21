@@ -8,7 +8,8 @@ namespace DoubleEncryption.Models
     public class RequestModel
     {
         public string Key { get; set; }
+        public string Vector { get; set; }
+        public string File { get; set; }
         public string Message { get; set; }
-        public string Filename { get; set; }
     }
 }

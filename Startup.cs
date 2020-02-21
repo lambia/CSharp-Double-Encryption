@@ -59,7 +59,7 @@ namespace DoubleEncryption
                     pattern: "{controller=Home}/{action=Index}/{id?}");
             });
 
-            Console.WriteLine("RSA Public Key del Server: {0}", MemoryCache.keyPair.publicKey);
+            Console.WriteLine("RSA Public Key del Server: {0}", AppStore.keyPair.publicKey);
         }
     }
 }

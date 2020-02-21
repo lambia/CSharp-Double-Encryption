@@ -19,41 +19,57 @@ namespace DoubleEncryption.Controllers
             _logger = logger;
         }
 
-        public IActionResult Index()
-        {
-            RSAService srv = new RSAService();
-            RSAKeyPair chiavi = srv.handshake();
-
-            return View(chiavi);
-        }
-
-        //Client genera chiavi. Server cifra con la pub del client e risponde. Client decifra con propria private.
-        [HttpPost]
-        public string Download([FromBody] RequestModel payload)
-        {
-            //ToDo #1: prendere file da FS e cifrarlo
-            RSAService srv = new RSAService();
-            string message = srv.EncryptLongText(payload.Key, payload.Message, true);
-
-            return message;
-        }
-
-        //Server genera chiavi e invia pub. Client uploada. Server decifra con propria private.
-        [HttpPost]
-        public string Upload([FromBody] RequestModel payload)
-        {
-            //ToDo #2: tenere in canna le private key nell'istanza
-            RSAService srv = new RSAService();
-            string message = srv.DecryptLongText(payload.Key, payload.Message, false);
-            srv.WriteFile(message, payload.Filename);
-
-            return message;
-        }
-
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+
+        public IActionResult Index()
+        {
+            KeyPair publicKey = new KeyPair() { publicKey = AppStore.publicKeyPem };
+
+            return View(publicKey);
+        }
+
+        //[HttpGet]
+        //ToDev: aggiungere parametro tipo ClientID o eliminare il metodo?
+        //public string GetPublicKey()
+        //{
+        //    return AppStore.publicKeyPem;
+        //}
+
+        [HttpPost]
+        public string Download([FromBody] RequestModel payload)
+        {
+            FileService fs = new FileService();
+            AESService aes = new AESService();
+            RSAService rsa = new RSAService();
+
+            string key = rsa.Decrypt(payload.Key);
+            string vector = rsa.Decrypt(payload.Vector);
+            string fileB64 = fs.ReadFile(payload.File);
+            byte[] fileBytes = aes.Encrypt(fileB64, key, vector);
+
+            string fileString = Convert.ToBase64String(fileBytes);
+            return fileString;
+        }
+
+        [HttpPost]
+        [DisableRequestSizeLimit]
+        public string Upload([FromBody] RequestModel payload)
+        {
+            FileService fs = new FileService();
+            AESService aes = new AESService();
+            RSAService rsa = new RSAService();
+
+            string key = rsa.Decrypt(payload.Key);
+            string vector = rsa.Decrypt(payload.Vector);
+            string fileString = aes.Decrypt(payload.File, key, vector);
+
+            fs.WriteFile(fileString, payload.Message);
+            return "200";
+            //ToDev: return un http code o un application result
         }
     }
 }
