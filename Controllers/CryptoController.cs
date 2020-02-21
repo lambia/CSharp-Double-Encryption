@@ -53,9 +53,9 @@ namespace DoubleEncryption.Controllers
         public string Upload([FromBody] CryptoRequestModel payload)
         {
             CryptoService srv = new CryptoService();
-            string keyAES = srv.rsaDecrypt(payload.Key);
-            string vectorAES = srv.rsaDecrypt(payload.Vector);
-            string fileString = srv.aesDecrypt(payload.File, keyAES, vectorAES);
+            //string keyAES = srv.rsaDecrypt(payload.Key);
+            //string vectorAES = srv.rsaDecrypt(payload.Vector);
+            string fileString = srv.aesDecrypt(payload.File, payload.Key, payload.Vector, payload.FileByte);
             srv.writeFile(fileString, payload.Message);
 
             return "ok";

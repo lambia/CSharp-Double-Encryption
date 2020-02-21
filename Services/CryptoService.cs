@@ -123,13 +123,15 @@ namespace DoubleEncryption.Services
             return encrypted;
         }
 
-        public string aesDecrypt(string encrypted, string key, string vector)
+        public string aesDecrypt(string encrypted, string key, string vector, string fileByte = null)
         {
+            byte[] fileBytes = Convert.FromBase64String(fileByte);
             byte[] encryptedBytes = Convert.FromBase64String(encrypted);
             byte[] keyBytes = Convert.FromBase64String(key);
             byte[] vectorBytes = Convert.FromBase64String(vector);
 
-            string result = aesDecryptBytes(encryptedBytes, keyBytes, vectorBytes);
+            //string result = aesDecryptBytes(encryptedBytes, keyBytes, vectorBytes);
+            string result = aesDecryptBytes(fileBytes, keyBytes, vectorBytes);
 
             return result;
         }
@@ -219,7 +221,16 @@ namespace DoubleEncryption.Services
 
         public void writeFile(string fileString, string fileName)
         {
+            //si spacca
             byte[] decryptedBinary = Convert.FromBase64String(fileString);
+
+            //scrive ma file corrotto
+            //UTF8Encoding byteConverter = new UTF8Encoding();
+            //byte[] decryptedBinary = byteConverter.GetBytes(fileString);
+
+            //ultimo test: boh
+            //byte[] decryptedBinary = Encoding.ASCII.GetBytes(fileString);
+
             File.WriteAllBytes(_path + fileName, decryptedBinary);
         }
         public string readFile(string fileName)
