@@ -134,11 +134,11 @@ namespace DoubleEncryption.Services
         {
             byte[] dataToDecrypt = Convert.FromBase64String(text);
 
-            if(dataToDecrypt.Length<_blockSize)
+            if (dataToDecrypt.Length < _blockSize)
             {
                 dataToDecrypt = padByteArray(dataToDecrypt, (byte)0x00, _blockSize);
             }
-            
+
             // Create an array to store the decrypted data in it
             byte[] decryptedData;
             using (RSACryptoServiceProvider rsa = new RSACryptoServiceProvider())
@@ -166,7 +166,7 @@ namespace DoubleEncryption.Services
             var strOutput = "";
             var stringParts = Regex.Split(text, _gsRegex);
             //bool inError = false;
-            
+
             for (int i = 0; i < stringParts.Length; i++)
             {
                 string stringPart = stringParts[i];
@@ -175,12 +175,12 @@ namespace DoubleEncryption.Services
                     string buffer = decrypt(privateKey, stringPart, pem);
                     //if(buffer==null)
                     //{
-                        //strOutput = "Errore chunk: " + i.ToString() + " - Contenuto: " + stringPart;
-                        //inError = true;
-                        //break;
+                    //strOutput = "Errore chunk: " + i.ToString() + " - Contenuto: " + stringPart;
+                    //inError = true;
+                    //break;
                     //} else
                     //{
-                        strOutput += buffer;
+                    strOutput += buffer;
                     //}
                 }
             }
@@ -197,7 +197,7 @@ namespace DoubleEncryption.Services
         public void WriteFile(string fileString, string fileName)
         {
             byte[] decryptedBinary = Convert.FromBase64String(fileString);
-            File.WriteAllBytes("c:\\tmp\\"+ fileName, decryptedBinary);
+            File.WriteAllBytes("c:\\tmp\\" + fileName, decryptedBinary);
         }
 
         private static string PrivateXML2PEM(RSACryptoServiceProvider rsa)

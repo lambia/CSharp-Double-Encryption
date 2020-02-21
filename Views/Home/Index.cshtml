@@ -11,7 +11,10 @@
 <input type="file" id="fileUpload" />
 <br />
 <br />
-<input type="button" id="fileDownload" value="download" />
+<input type="text" placeholder="File name" value="" id="filename" />&nbsp;
+<input type="text" placeholder="Mime type" value="" id="mimetype" style="width: 20em;" />&nbsp;
+<input type="button" id="fileDownload" value="download" /><br/><br/>
+<textarea id="log" rows="6" cols="80" ></textarea>
 
 <!------------------------------------------------------------------------------------->
 <!----------------------------- Da spostare in Bundle --------------------------------->
@@ -22,14 +25,7 @@
 
     /* INIT */
     $(function () {
-        //let srv = window.crypto.subtle;
-
-        window.rsaGs = "|";
-        window.rsaKeySize = 2048;
-        window.rsaPublicKeyString = $("#rsaPublicKey").val();
-        window.rsa = new JSEncrypt({ default_key_size: rsaKeySize });
-        rsa.setPublicKey(rsaPublicKeyString);
-
+        RsaInit();
         document.getElementById("fileUpload").addEventListener("change", handleUpload, false);
         document.getElementById("fileDownload").addEventListener("click", handleDownload, false);
 
@@ -37,20 +33,24 @@
 
     /* HELPER */
     //ToDev: mettere i try/catch in tutti gli helper. Riutilizzare il codice. Elimina le funzioni lente e duplicate (es. Little). Funzioni aes/rsa (es. aesinit, window.punto)
-    function benchmark(what) {
-        var start = window.performance.now();
-        what();
-        var end = window.performance.now();
-        console.log("Tempo chiave: ", (end - start) / 1000);
+    function benchmark(start, name) {
+        if (!start) {
+            return window.performance.now();
+        } else {
+            var end = window.performance.now();
+            var message = name + " Time: " + ((end - start) / 1000).toFixed(3) + " seconds";
+            console.log(message);
+            $("#log").val($("#log").val() + message + "\n");
+        }
     }
-        
+
     function WebBaseToBase(data) {
         return data.replace("-", "+").replace("_", "/");
     }
     function BaseToWebBase(data) {
         return data.replace("+", "-").replace("/", "_");
     }
-    
+
     function BaseToUint8Array(data) {
         let dataLength = data.length;
         let dataBytes = new Uint8Array(new ArrayBuffer(dataLength));
@@ -61,12 +61,12 @@
 
         return dataBytes;
     }
-    
+
     /************************ TRE FUNZIONI DIVERSE MA UGUALI ****************************/
     //ToDev: Unire, magari usando The readAsArrayBuffer/readAsText di FileReader. Unirle comporterebbe upload di dimensioni maggiori
 
     function ArrayBufferToBase(data) { //data = ArrayBuffer di un base64
-        console.log("ArrayBufferToBase: ", data);
+        //console.log("ArrayBufferToBase: ", data);
         let dataByteArray = new Uint8Array(data); //ByteArray del base64
         let dataString = new TextDecoder("utf-8").decode(dataByteArray); //Stringa base64
         //let dataString = String.fromCharCode.apply(null, dataByteArray); //Stringa base64
@@ -74,7 +74,7 @@
     }
 
     function arrayBufferToBase64(buffer) {
-        console.log("arrayBufferToBase64: ", buffer);
+        //console.log("arrayBufferToBase64: ", buffer);
         let binary = '';
         let bytes = new Uint8Array(buffer);
         let len = bytes.byteLength;
@@ -111,6 +111,41 @@
     }
 
     /* APP */
+    async function RsaInit() {
+        window.rsaGs = "|";
+        window.rsaKeySize = 2048;
+        window.rsaPublicKeyString = $("#rsaPublicKey").val();
+        window.rsa = new JSEncrypt({ default_key_size: rsaKeySize });
+        rsa.setPublicKey(rsaPublicKeyString);
+    }
+
+    async function AesInit() {
+
+        //AES INIT
+        let key = await aesGenerateKey();
+        let keydata = await aesExportKey(key);
+        let keyB64 = btoa(String.fromCharCode(...new Uint8Array(keydata)));
+        let vector = window.crypto.getRandomValues(new Uint8Array(16));
+        let vectorB64 = btoa(String.fromCharCode.apply(null, vector));
+
+        //RSA ENCRYPTION
+        let encryptedVector = rsaEncrypt(vectorB64, rsa, rsaKeySize, rsaGs);
+        let encryptedKey = rsaEncrypt(keyB64, rsa, rsaKeySize, rsaGs);
+
+        //COSTRUISCO OGGETTO DA RESTITUIRE
+        let result = {
+            key: {
+                data: key,
+                encrypted: encryptedKey,
+            },
+            vector: {
+                data: vector,
+                encrypted: encryptedVector
+            }
+        };
+        return result;
+    }
+
     async function callApi(action, data, key, vector, message = null) {
         let params = {
             Key: key,
@@ -127,60 +162,67 @@
         });
     }
 
-    async function handleDownload(e, filename = "kb1790.pdf", fileType = null) {
-        //AES INIT
-        let key = await aesGenerateKey();
-        let keydata = await aesExportKey(key);
-        let keyB64 = arrayBufferToBase64(keydata);
-        let vector = window.crypto.getRandomValues(new Uint8Array(16));
-        let vectorB64 = Uint8ArrayToBase(vector); 
+    async function handleDownload(e, filename = null, fileType = null) {
 
-        //RSA ENCRYPT
-        let encryptedVector = rsaEncrypt(vectorB64, rsa, rsaKeySize, rsaGs);
-        let encryptedKey = rsaEncrypt(keyB64, rsa, rsaKeySize, rsaGs);
+        if (filename == null)
+            filename = $("#filename").val();
+
+        if (fileType == null)
+            fileType = $("#mimetype").val();
+
+        let benchmarkStart = benchmark();
+
+        //INIT DI AES ED RSA
+        let srv = await AesInit();
 
         //API REQUEST
-        let responseB64 = atob(await callApi("download", filename, encryptedKey, encryptedVector)); //response base64
+        let responseB64 = atob(await callApi("download", filename, srv.key.encrypted, srv.vector.encrypted)); //response base64
         let responseByte = BaseToUint8Array(responseB64); //array di byte crittografati
 
         //AES DECRYPT
-        let plainResponseByteB64 = await aesDecrypt(responseByte.buffer, key, vector); //ArrayBuffer del base64 in chiaro
+        let plainResponseByteB64 = await aesDecrypt(responseByte.buffer, srv.key.data, srv.vector.data); //ArrayBuffer del base64 in chiaro
 
         //CREO BLOB
         let plainResponseB64String = ArrayBufferToBase(plainResponseByteB64);
         let blob = BaseToBlob(plainResponseB64String, fileType);
         TriggerBlobDownload(blob, filename);
+
+        benchmark(benchmarkStart, "DOWNLOAD");
+
     }
 
-    async function handleUpload() {        
+    async function handleUpload() {
         const myFile = this.files[0];
         if (myFile) {
             var reader = new FileReader();
+            var filename = myFile.name;
             reader.readAsDataURL(myFile);
             reader.onload = async function (e) {
 
-                //AES INIT
-                let key = await aesGenerateKey();
-                let keydata = await aesExportKey(key);
-                let keyB64 = btoa(String.fromCharCode(...new Uint8Array(keydata)));
-                let vector = window.crypto.getRandomValues(new Uint8Array(16));
-                let vectorB64 = btoa(String.fromCharCode.apply(null, vector));
-                
-                //RSA ENCRYPTION
-                let encryptedVector = rsaEncrypt(vectorB64, rsa, rsaKeySize, rsaGs);
-                let encryptedKey = rsaEncrypt(keyB64, rsa, rsaKeySize, rsaGs);
+                var benchmarkStart = benchmark();
+
+                //INIT DI AES ED RSA
+                let srv = await AesInit();
 
                 //RECUPERO FILE
-                let base64blob = e.target.result;
-                base64blob = base64blob.split(",")[1]; //base64 del blob
-                let uploadByte = BaseToUint8Array(base64blob);
+                let blob = e.target.result;
+                let blobType = blob.split(";")[0]; //mime type
+                let blobBase64 = blob.split(",")[1]; //base64 del blob
+                let uploadByte = BaseToUint8Array(blobBase64);
 
                 //AES ENCRYPTION
-                let encryptedData = await aesEncrypt(uploadByte.buffer, key, vector); //ArrayBuffer della stringa cifrata
+                let encryptedData = await aesEncrypt(uploadByte.buffer, srv.key.data, srv.vector.data); //ArrayBuffer della stringa cifrata
 
                 //API CALL
                 let dati = arrayBufferToBase64(encryptedData); //Stringa base64 dei byte cifrati
-                let uploadResponse = await callApi("upload", dati, encryptedKey, encryptedVector, myFile.name);
+                let uploadResponse = await callApi("upload", dati, srv.key.encrypted, srv.vector.encrypted, filename);
+
+                //DEBUG: scrive cosa ha uploadato
+                $("#filename").val(filename);
+                $("#mimetype").val(blobType);
+
+                benchmark(benchmarkStart, "UPLOAD");
+
             };
         }
 
