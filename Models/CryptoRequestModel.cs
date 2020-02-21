@@ -11,6 +11,5 @@ namespace DoubleEncryption.Models
         public string Vector { get; set; }
         public string File { get; set; }
         public string Message { get; set; }
-        public string FileByte { get; set; }
     }
 }

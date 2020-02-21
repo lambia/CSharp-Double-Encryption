@@ -7,321 +7,277 @@
     <h1 class="display-4">@ViewBag.Title</h1>
     <p>Esempio di cose che fanno cose</p>
 </div>
-<div>Public Key: @Model.publicKey</div>
+<input type="hidden" id="rsaPublicKey" value="@Model.publicKey" />
+<input type="file" id="fileUpload" />
 <br />
 <br />
-<input type="file" id="fileUpload"><br /><br />
 <input type="button" id="fileDownload" value="download" />
 
 <!------------------------------------------------------------------------------------->
 <!----------------------------- Da spostare in Bundle --------------------------------->
 <!------------------------------------------------------------------------------------->
 <script src="rsa/jquery.min.js"></script>
-@*<script src="rsa/jsencrypt.min.js"></script>*@
+<script src="rsa/jsencrypt.min.js"></script>
 <script type="text/javascript">
-    //$(function () {
+
+    /* INIT */
+    $(function () {
         //let srv = window.crypto.subtle;
         
+        window.rsaGs = "|";
+        window.rsaKeySize = 2048;
+        window.rsaPublicKeyString = $("#rsaPublicKey").val();
+        window.rsa = new JSEncrypt({ default_key_size: rsaKeySize });
+        rsa.setPublicKey(rsaPublicKeyString);
+
         document.getElementById("fileUpload").addEventListener("change", handleUpload, false);
         document.getElementById("fileDownload").addEventListener("click", handleDownload, false);
 
-        function benchmark(what) {
-            var start = window.performance.now();
-            what();
-            var end = window.performance.now();
-            console.log("Tempo chiave: ", (end - start)/1000);
-        }
+    });
 
-        async function handleDownload(filename = "prova.png", fileType = "image/png") {
-            let key = await aesGenerateKey();
-            let keydata = await aesExportKey(key);
-
-            let vector = window.crypto.getRandomValues(new Uint8Array(16));
-            let vectorB64 = btoa(String.fromCharCode.apply(null, vector));
-            //in contrario è:   new Uint8Array(atob(vectorB64).split("").map(function(c) { return c.charCodeAt(0); }));
-
-            //let keyB64 = keydata.k;//.replace("-","+").replace("_","/");
-            let keyB64 = btoa(String.fromCharCode(...new Uint8Array(keydata)));
-            
-            let responseB64 = await callApi(filename, keyB64, vectorB64, "download");
-            //Da base64 a view di memoria (arraybuffer attraverso uint8array)
-            let responseRaw = atob(responseB64);
-            let responseRawLength = responseRaw.length;
-            let responseByte = new Uint8Array(new ArrayBuffer(responseRawLength));
-            
-            for(i = 0; i < responseRawLength; i++) {
-                responseByte[i] = responseRaw.charCodeAt(i);
-            }
-
-            //[OK] responseByte = array di byte ancora crittografati
-
-            let plainResponseByteB64 = await aesDecrypt(responseByte.buffer, key, vector);
-            //[OK?] plainResponseByte = array di byte in chiaro (che rappresentano la stringa base64 del file)
-            
-            let plainResponseByteArray = new Uint8Array(plainResponseByteB64);
-            console.log("Byte Array della stringa base64 del file", plainResponseByteArray);
-
-            let plainResponseB64String = new TextDecoder("utf-8").decode(plainResponseByteArray);
-            console.log("Stringa base64 del file", plainResponseB64String);
-
-            //let plainBase64String = String.fromCharCode.apply(null, plainResponseByteArray); //stringa, base-encoded
-            //console.log("plainBase64String", plainBase64String);
-
-            let byteCharacters = atob(plainResponseB64String); //separo per singoli caratteri => stringa, rappresenta i byte del blob
-            console.log("Stringa del file", byteCharacters);
-
-            let byteArray = new Uint8Array(new ArrayBuffer(byteCharacters.length)); //creo un array di byte
-            for (i = 0; i < byteCharacters.length; i++) {
-                byteArray[i] = byteCharacters.charCodeAt(i); //prendo i caratteri e ne pusho il relativo byte nell'array
-            }
-            console.log("Byte del file", byteArray);
-
-            var blob=new Blob([byteArray], {type: fileType});
-            //var blob = b64toBlob(plainResponseB64String, fileType);
-            var link=document.createElement('a');
-            link.href=window.URL.createObjectURL(blob);
-            link.download=filename;
-            link.click();
+    /* HELPER */
+    function benchmark(what) {
+        var start = window.performance.now();
+        what();
+        var end = window.performance.now();
+        console.log("Tempo chiave: ", (end - start) / 1000);
     }
 
-        async function handleUpload() {
-            const myFile = this.files[0];
-            let key = await aesGenerateKey();
-            let keydata = await aesExportKey(key);
-            let keyB64 = btoa(String.fromCharCode(...new Uint8Array(keydata)));
-            let vector = window.crypto.getRandomValues(new Uint8Array(16));
-            let vectorB64 = btoa(String.fromCharCode.apply(null, vector));
-            let filename = "";
-                     
-            if (myFile) {
-                var reader = new FileReader();
-                reader.readAsDataURL(myFile);
-                reader.onload = async function (e) {
-                    console.log(e);
-                    var base64blob = e.target.result;
-                    base64blob = base64blob.split(",")[1];
-
-                    console.log("base64", base64blob);
-
-                    //Da base64 a view di memoria (arraybuffer attraverso uint8array)
-                    //let uploadRaw = atob(base64blob);
-                    console.log("binary", atob(base64blob));
-
-                    let uploadRaw = base64blob;
-                    let uploadRawLength = uploadRaw.length;
-                    let uploadByte = new Uint8Array(new ArrayBuffer(uploadRawLength));
-            
-                    for(i = 0; i < uploadRawLength; i++) {
-                        uploadByte[i] = uploadRaw.charCodeAt(i);
-                    }
-                    console.log("bytes", uploadByte);
-
-                    let encryptedData = await aesEncrypt(uploadByte.buffer, key, vector);
-                    console.log("encrypted bytes", encryptedData);
-
-                    //ArrayBuffer -> byteArray -> String Utf8 (b64) -> controller
-
-                    //let encryptedByteArray = new Uint8Array(encryptedData);
-                    //console.log("encryptedByteArray", encryptedByteArray);
-
-                    //let encryptedB64String = btoa(String.fromCharCode(...new Uint8Array(encryptedData)));
-                                        
-                    //let encryptedB64String3 = new TextDecoder("utf-8").decode(encryptedData);
-                    //console.log("encryptedB64String3", encryptedB64String3);
-
-                    let dati = arrayBufferToBase64(encryptedData);
-                    console.log("encrypted base64", dati);
-
-                    //giusto ma va in stack overflow
-                    //let encryptedB64 = btoa(String.fromCharCode.apply(null, encryptedByteArray));
-
-                    //non va in overflow, ma si spacca su c#
-                    //let encryptedB64 = new TextDecoder("Utf8").decode(encryptedByteArray);
-                    //let encryptedB64String = btoa(encryptedB64);
-                    //console.log("encryptedB64", encryptedB64String);
-
-                    //console.log("encryptedB64String", encryptedB64String);
-                    let responseB64b = await callApi(dati, keyB64, vectorB64, "upload", myFile.name, dati);
-                };
-            }
-                        
-            }
-
-        function arrayBufferToBase64(buffer) {
-            let binary = '';
-            let bytes = new Uint8Array(buffer);
-            let len = bytes.byteLength;
-            for (let i = 0; i < len; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            return window.btoa(binary);
+    function arrayBufferToBase64(buffer) {
+        let binary = '';
+        let bytes = new Uint8Array(buffer);
+        let len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
         }
+        return window.btoa(binary);
+    }
 
-        async function aesGenerateKey() {
-            return window.crypto.subtle.generateKey({ name: "AES-CBC", length: 256 }, true, ["encrypt", "decrypt"]);
-        }
+    /* APP */
+    async function callApi(data, key, vector, action, message = null) {
+        let params = {
+            Key: key,
+            Vector: vector,
+            File: data,
+            Message: message
+        };
 
-        async function aesExportKey(key) { //jwk o raw
-            return window.crypto.subtle.exportKey("raw", key);
-        }
-
-        async function callApi(data, key, vector, action, message = null, fileByte = null) {
-                let params = {
-                    Key: key, //es. "hbcMV6bdumNyMm5wVRY7hsgpVy/EyErwr8hOi8MK0KM="
-                    Vector: vector, //es. "rN3II1WG73hpfwwdxtoDsw=="
-                    File: data,
-                    Message: message,
-                    FileByte: fileByte
-                };
-
-                return $.post({
-                    url: "/crypto/" + action + "/",
-                    contentType: "application/json; charset=utf-8", //invio
-                    dataType: "text", //ricevo
-                    data: JSON.stringify(params)//,
-                    //success: function (data) {
-                    //    console.log("Server answered", data);
-                    //    return Promise.resolve(data);
-                    //},
-                    //failure: function (err) {
-                    //    console.error(err);
-                    //    return Promise.reject(err);
-                    //}
-                });
-        }
-
-        async function aesDecrypt(data, key, vector) {
-            return window.crypto.subtle.decrypt(
-                {
-                    name: "AES-CBC",
-                    iv: vector, //The initialization vector you used to encrypt
-                    length: 256
-                },
-                key, //from generateKey or importKey above
-                data //ArrayBuffer of the data
-            );
-            //.then(function(decrypted){
-            //    //returns an ArrayBuffer containing the decrypted data
-            //    return Promise.resolve(decrypted);
-            //    console.log(new Uint8Array(decrypted));
-            //})
-            //.catch(function(err){
-            //    console.error(err);
-            //    return Promise.reject(err);
-            //});
-        }
-
-        async function aesEncrypt(data, key, vector) {
-
-            return window.crypto.subtle.encrypt(
-                {
-                    name: "AES-CBC",
-                    //Don't re-use initialization vectors!
-                    //Always generate a new iv every time your encrypt!
-                    iv: vector,
-                    length: 256
-                },
-                key, //from generateKey or importKey above
-                data //ArrayBuffer of data you want to encrypt
-            );
-            //.then(function (encrypted) {
-            //    //returns an ArrayBuffer containing the encrypted data
-            //    return Promise.resolve({ vector: vector, data: encrypted });
-            //    console.log(new Uint8Array(encrypted));
-            //})
-            //.catch(function (err) {
-            //    console.error(err);
-            //    return Promise.reject(err);
-            //});
-        }
-    /*
-        function strToArrayBuffer(str) {
-            var buf = new ArrayBuffer(str.length * 2);
-            var bufView = new Uint16Array(buf);
-            for (var i = 0, strLen = str.length; i < strLen; i++) {
-                bufView[i] = str.charCodeAt(i);
-            }
-            return buf;
-        }
-        function arrayBufferToString(buf) {
-            return String.fromCharCode.apply(null, new Uint16Array(buf));
-        }
-        */
-        //Funzioni: aesGenerateKey aesExportKey callApi aesDecrypt aesEncrypt
-        /*
-        aesGenerateKey().then(key => {
-            console.log("key: ", key);
-            window.key = key //ToDev: non salvare nel window, ma passa nella catena di promise (?)
-
-            return aesExportKey(key);
-
-        }).then(keydata => {
-            console.log("keydata: ", keydata);
-
-            let data = "messaggio da cifrare, un giorno sarà un file";
-            //let dataB64 = btoa(data);
-            let dataB64 = data;
-
-            let vector = window.crypto.getRandomValues(new Uint8Array(16));
-            console.log("Vector: ", vector);
-            let vectorB64 = btoa(String.fromCharCode.apply(null, vector));
-            console.log("VectorB64: ", vectorB64);
-            //in contrario è:   new Uint8Array(atob(vectorB64).split("").map(function(c) { return c.charCodeAt(0); }));
-
-            //let keyB64 = keydata.k;//.replace("-","+").replace("_","/");
-            let keyB64 = btoa(String.fromCharCode(...new Uint8Array(keydata)));
-            console.log("keyB64: ", keyB64);
-
-            window.vector = vector; //ToDev: non salvare nel window, ma passa nella catena di promise (?)
-
-            return callApi(dataB64, keyB64, vectorB64, "download");
-
-        }).then(apidata => {
-            console.log("apidata: ", apidata);
-            //let dataByte = strToArrayBuffer(data);
-
-            //var uintArray = Base64Binary.decode(base64_string);
-            //var byteArray = Base64Binary.decodeArrayBuffer(base64_string);
-            //let dataByte = Uint8Array.from(atob(apidata), c => c.charCodeAt(0))
-            let dataByte = Uint8Array.from(apidata, c => c.charCodeAt(0))
-            console.log("dataByte", dataByte);
-
-
-            return aesDecrypt(dataByte.buffer, key, vector);
-
-        }).then(finalResult => {
-            let result = String.fromCharCode.apply(null, new Uint8Array(finalResult));
-            console.log("result: ", result);
-
-        }).catch(err => {
-            console.error(err);
+        return $.post({
+            url: "/crypto/" + action + "/",
+            contentType: "application/json; charset=utf-8", //invio
+            dataType: "text", //ricevo
+            data: JSON.stringify(params)
         });
-        */
+    }
 
-    
-    /*
-        function b64toBlob(b64Data, contentType = '', sliceSize = 512) {
-            const byteCharacters = atob(b64Data);
-            const byteArrays = [];
- 
-            for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-                const slice = byteCharacters.slice(offset, offset + sliceSize);
- 
-                const byteNumbers = new Array(slice.length);
-                for (let i = 0; i < slice.length; i++) {
-                    byteNumbers[i] = slice.charCodeAt(i);
-                }
- 
-                const byteArray = new Uint8Array(byteNumbers);
- 
-                byteArrays.push(byteArray);
-            }
- 
-            const blob = new Blob(byteArrays, {type: contentType});
-            return blob;
+    async function handleDownload(e, filename = "prova.png", fileType = "image/png") {
+        let key = await aesGenerateKey();
+        let keydata = await aesExportKey(key);
+
+        let vector = window.crypto.getRandomValues(new Uint8Array(16));
+        let vectorB64 = btoa(String.fromCharCode.apply(null, vector));
+        //in contrario è:   new Uint8Array(atob(vectorB64).split("").map(function(c) { return c.charCodeAt(0); }));
+
+        //let keyB64 = keydata.k;//.replace("-","+").replace("_","/");
+        let keyB64 = btoa(String.fromCharCode(...new Uint8Array(keydata)));
+
+        /* RSA STUFF */
+        let encryptedVector = rsaEncrypt(vectorB64, rsa, rsaKeySize, rsaGs);
+        let encryptedKey = rsaEncrypt(keyB64, rsa, rsaKeySize, rsaGs);
+        /* FINE RSA */
+
+        let responseB64 = await callApi(filename, encryptedKey, encryptedVector, "download");
+        //Da base64 a view di memoria (arraybuffer attraverso uint8array)
+        let responseRaw = atob(responseB64);
+        let responseRawLength = responseRaw.length;
+        let responseByte = new Uint8Array(new ArrayBuffer(responseRawLength));
+
+        for (i = 0; i < responseRawLength; i++) {
+            responseByte[i] = responseRaw.charCodeAt(i);
         }
-    */
 
-        //REPO da https://github.com/diafygi/webcrypto-examples#aes-cbc
-    //});
+        //[OK] responseByte = array di byte ancora crittografati
+
+        let plainResponseByteB64 = await aesDecrypt(responseByte.buffer, key, vector);
+        //[OK?] plainResponseByte = array di byte in chiaro (che rappresentano la stringa base64 del file)
+
+        let plainResponseByteArray = new Uint8Array(plainResponseByteB64);
+        console.log("Byte Array della stringa base64 del file", plainResponseByteArray);
+
+        let plainResponseB64String = new TextDecoder("utf-8").decode(plainResponseByteArray);
+        console.log("Stringa base64 del file", plainResponseB64String);
+
+        //let plainBase64String = String.fromCharCode.apply(null, plainResponseByteArray); //stringa, base-encoded
+        //console.log("plainBase64String", plainBase64String);
+
+        let byteCharacters = atob(plainResponseB64String); //separo per singoli caratteri => stringa, rappresenta i byte del blob
+        console.log("Stringa del file", byteCharacters);
+
+        let byteArray = new Uint8Array(new ArrayBuffer(byteCharacters.length)); //creo un array di byte
+        for (i = 0; i < byteCharacters.length; i++) {
+            byteArray[i] = byteCharacters.charCodeAt(i); //prendo i caratteri e ne pusho il relativo byte nell'array
+        }
+        console.log("Byte del file", byteArray);
+
+        var blob = new Blob([byteArray], { type: fileType });
+        //var blob = b64toBlob(plainResponseB64String, fileType);
+        var link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+    }
+
+    async function handleUpload() {
+        const myFile = this.files[0];
+        let key = await aesGenerateKey();
+        let keydata = await aesExportKey(key);
+        let keyB64 = btoa(String.fromCharCode(...new Uint8Array(keydata)));
+        let vector = window.crypto.getRandomValues(new Uint8Array(16));
+        let vectorB64 = btoa(String.fromCharCode.apply(null, vector));
+        let filename = "";
+
+        if (myFile) {
+            var reader = new FileReader();
+            reader.readAsDataURL(myFile);
+            reader.onload = async function (e) {
+                console.log(e);
+                var base64blob = e.target.result;
+                base64blob = base64blob.split(",")[1];
+
+                console.log("base64", base64blob);
+
+                //Da base64 a view di memoria (arraybuffer attraverso uint8array)
+                //let uploadRaw = atob(base64blob);
+                console.log("binary", atob(base64blob));
+
+                let uploadRaw = base64blob;
+                let uploadRawLength = uploadRaw.length;
+                let uploadByte = new Uint8Array(new ArrayBuffer(uploadRawLength));
+
+                for (i = 0; i < uploadRawLength; i++) {
+                    uploadByte[i] = uploadRaw.charCodeAt(i);
+                }
+                console.log("bytes", uploadByte);
+
+                let encryptedData = await aesEncrypt(uploadByte.buffer, key, vector);
+                console.log("encrypted bytes", encryptedData);
+
+                //ArrayBuffer -> byteArray -> String Utf8 (b64) -> controller
+
+                //let encryptedByteArray = new Uint8Array(encryptedData);
+                //console.log("encryptedByteArray", encryptedByteArray);
+
+                //let encryptedB64String = btoa(String.fromCharCode(...new Uint8Array(encryptedData)));
+
+                //let encryptedB64String3 = new TextDecoder("utf-8").decode(encryptedData);
+                //console.log("encryptedB64String3", encryptedB64String3);
+
+                let dati = arrayBufferToBase64(encryptedData);
+                console.log("encrypted base64", dati);
+
+                //giusto ma va in stack overflow
+                //let encryptedB64 = btoa(String.fromCharCode.apply(null, encryptedByteArray));
+
+                //non va in overflow, ma si spacca su c#
+                //let encryptedB64 = new TextDecoder("Utf8").decode(encryptedByteArray);
+                //let encryptedB64String = btoa(encryptedB64);
+                //console.log("encryptedB64", encryptedB64String);
+
+                /* RSA STUFF */
+                let encryptedVector = rsaEncrypt(vectorB64, rsa, rsaKeySize, rsaGs);
+                let encryptedKey = rsaEncrypt(keyB64, rsa, rsaKeySize, rsaGs);
+                /* FINE RSA */
+
+                //console.log("encryptedB64String", encryptedB64String);
+                let responseB64b = await callApi(dati, encryptedKey, encryptedVector, "upload", myFile.name);
+            };
+        }
+
+    }
+
+    /* AES */
+    async function aesGenerateKey() {
+        return window.crypto.subtle.generateKey({ name: "AES-CBC", length: 256 }, true, ["encrypt", "decrypt"]);
+    }
+
+    async function aesExportKey(key) { //jwk o raw
+        return window.crypto.subtle.exportKey("raw", key);
+    }
+
+    async function aesDecrypt(data, key, vector) {
+        return window.crypto.subtle.decrypt(
+            {
+                name: "AES-CBC",
+                iv: vector, //The initialization vector you used to encrypt
+                length: 256
+            },
+            key, //from generateKey or importKey above
+            data //ArrayBuffer of the data
+        );
+        //.then(function(decrypted){
+        //    //returns an ArrayBuffer containing the decrypted data
+        //    return Promise.resolve(decrypted);
+        //    console.log(new Uint8Array(decrypted));
+        //})
+        //.catch(function(err){
+        //    console.error(err);
+        //    return Promise.reject(err);
+        //});
+    }
+
+    async function aesEncrypt(data, key, vector) {
+
+        return window.crypto.subtle.encrypt(
+            {
+                name: "AES-CBC",
+                //Don't re-use initialization vectors!
+                //Always generate a new iv every time your encrypt!
+                iv: vector,
+                length: 256
+            },
+            key, //from generateKey or importKey above
+            data //ArrayBuffer of data you want to encrypt
+        );
+        //.then(function (encrypted) {
+        //    //returns an ArrayBuffer containing the encrypted data
+        //    return Promise.resolve({ vector: vector, data: encrypted });
+        //    console.log(new Uint8Array(encrypted));
+        //})
+        //.catch(function (err) {
+        //    console.error(err);
+        //    return Promise.reject(err);
+        //});
+    }
+
+    /* RSA */
+    function rsaEncrypt(message, srv, keySize, chunkSeparator) {
+        //2048 :: 245
+        //4096 :: 501
+        let chunkSize = (keySize / 8) - 11;
+
+        if (message == null || message.length < 1)
+            throw new ArgumentException("String can not be null or empty and chunk size should be greater than zero.");
+
+        var chunkCount = message.length / chunkSize + (message.length % chunkSize != 0 ? 1 : 0);
+        var result = [];
+
+        for (var i = 0; i < chunkCount; i++) {
+            var startIndex = i * chunkSize;
+            var s = "";
+
+            if (startIndex + chunkSize >= message.length) {
+                s = message.substring(startIndex);
+            } else {
+                s = message.substring(startIndex, startIndex + chunkSize);
+            }
+
+            var r = srv.encrypt(s);
+            result.push(r);
+        }
+
+        return result.join(chunkSeparator) + chunkSeparator;
+    }
+
+    //REPO da https://github.com/diafygi/webcrypto-examples#aes-cbc
+
 </script>

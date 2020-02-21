@@ -15,6 +15,7 @@ using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.X509;
+using System.Text.RegularExpressions;
 
 namespace DoubleEncryption.Services
 {
@@ -72,7 +73,39 @@ namespace DoubleEncryption.Services
             return sb.ToString();
         }
 
-        private byte[] padByteArray(byte[] byteArray, byte newByte, int newLength)
+        public string rsaDecrypt(string text)
+        {
+            var strOutput = "";
+            var stringParts = Regex.Split(text, _gsRegex);
+            //bool inError = false;
+
+            for (int i = 0; i < stringParts.Length; i++)
+            {
+                string stringPart = stringParts[i];
+                if (stringPart != "")
+                {
+                    string buffer = rsaDecryptChunk(stringPart);
+                    //if(buffer==null)
+                    //{
+                    //strOutput = "Errore chunk: " + i.ToString() + " - Contenuto: " + stringPart;
+                    //inError = true;
+                    //break;
+                    //} else
+                    //{
+                    strOutput += buffer;
+                    //}
+                }
+            }
+
+            //Vecchio ciclo senza debug
+            //foreach (var stringPart in stringParts)
+            //{
+            //    if (stringPart != "") strOutput += decrypt(privateKey, stringPart, pem);
+            //}
+
+            return strOutput;
+        }
+        public byte[] rsaPadByteArray(byte[] byteArray, byte newByte, int newLength)
         {
             byte[] result = new byte[newLength];
             int oldLength = byteArray.Length;
@@ -88,14 +121,14 @@ namespace DoubleEncryption.Services
             return result;
         }
 
-        public string rsaDecrypt(string encB64)
+        public string rsaDecryptChunk(string encB64)
         {
             byte[] encBytes = Convert.FromBase64String(encB64);
 
             //Paddding aggiuntivo per javascript se i block size non fossero corretti
             if (encBytes.Length < _blockSize)
             {
-                encBytes = padByteArray(encBytes, (byte)0x00, _blockSize);
+                encBytes = rsaPadByteArray(encBytes, (byte)0x00, _blockSize);
             }
 
             // Create an array to store the decrypted data in it
@@ -123,15 +156,14 @@ namespace DoubleEncryption.Services
             return encrypted;
         }
 
-        public string aesDecrypt(string encrypted, string key, string vector, string fileByte = null)
+        public string aesDecrypt(string encrypted, string key, string vector)
         {
-            byte[] fileBytes = Convert.FromBase64String(fileByte);
             byte[] encryptedBytes = Convert.FromBase64String(encrypted);
             byte[] keyBytes = Convert.FromBase64String(key);
             byte[] vectorBytes = Convert.FromBase64String(vector);
 
             //string result = aesDecryptBytes(encryptedBytes, keyBytes, vectorBytes);
-            string result = aesDecryptBytes(fileBytes, keyBytes, vectorBytes);
+            string result = aesDecryptBytes(encryptedBytes, keyBytes, vectorBytes);
 
             return result;
         }

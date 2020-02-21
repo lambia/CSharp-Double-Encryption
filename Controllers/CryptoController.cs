@@ -28,37 +28,30 @@ namespace DoubleEncryption.Controllers
         [HttpPost]
         public string Download([FromBody] CryptoRequestModel payload)
         {
-            //Filename: file richiesto, Key: aes-key, Message: aes-IV
-            //string testKEY = "gCjK+DZ/GCYbKIGiAt1qCA==" oppure "hbcMV6bdumNyMm5wVRY7hsgpVy/EyErwr8hOi8MK0KM="
-            //string testIV = "47l5QsSe1POo31adQ/u7nQ==" oppure "rN3II1WG73hpfwwdxtoDsw=="
-            //key -> byte[32] { 133, 183, 12, 87, 166, 221, 186, 99, 114, 50, 110, 112, 85, 22, 59, 134, 200, 41, 87, 47, 196, 200, 74, 240, 175, 200, 78, 139, 195, 10, 208, 163 }
-            //iv -> byte[16] { 172, 221, 200, 35, 85, 134, 239, 120, 105, 127, 12, 29, 198, 218, 3, 179 }
-
             CryptoService srv = new CryptoService();
-            /*
-            string keyAES = srv.rsaDecrypt(payload.key);
-            string vectorAES = srv.rsaDecrypt(payload.vector);
-            string file = srv.aesEncrypt(payload.file, keyAES, vectorAES);
-            *///ToDev: decommenta
-            
-            byte[] fileBytes = srv.aesEncrypt(payload.File, payload.Key, payload.Vector); //ToDev: rimuovi
-            string fileString = Convert.ToBase64String(fileBytes);
-            //string response = Newtonsoft.Json.JsonConvert.SerializeObject(new { file = file });
 
-            //return Encoding.UTF7.GetString(file);
+            string key = srv.rsaDecrypt(payload.Key);
+            string vector = srv.rsaDecrypt(payload.Vector);
+            byte[] fileBytes = srv.aesEncrypt(payload.File, key, vector);
+
+            string fileString = Convert.ToBase64String(fileBytes);
             return fileString;
         }
 
         [HttpPost]
+        [DisableRequestSizeLimit]
         public string Upload([FromBody] CryptoRequestModel payload)
         {
+            //ToDev: limite 10mb IIS in upload
             CryptoService srv = new CryptoService();
-            //string keyAES = srv.rsaDecrypt(payload.Key);
-            //string vectorAES = srv.rsaDecrypt(payload.Vector);
-            string fileString = srv.aesDecrypt(payload.File, payload.Key, payload.Vector, payload.FileByte);
-            srv.writeFile(fileString, payload.Message);
+            
+            string key = srv.rsaDecrypt(payload.Key);
+            string vector = srv.rsaDecrypt(payload.Vector);
+            string fileString = srv.aesDecrypt(payload.File, key, vector);
 
+            srv.writeFile(fileString, payload.Message);
             return "ok";
+            //ToDev: decommenta rsa e return http code
         }
     }
 }
