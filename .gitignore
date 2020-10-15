@@ -9,6 +9,7 @@ backup/
 todo
 to.do
 todo.txt
+storage/*.*
 *.rsuser
 *.suo
 *.user
