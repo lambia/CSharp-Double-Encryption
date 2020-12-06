@@ -17,6 +17,8 @@ namespace DoubleEncryption.Services
         public static string _gsRegex = @"\|";
         public static string _path = "storage\\"; //era "C:\\tmp\\"
 
+        //ToDo: get startup.Configuration??
+
         //Istanza di RSA
         public static RSACryptoServiceProvider rsa = new RSACryptoServiceProvider(_keyLength);
 

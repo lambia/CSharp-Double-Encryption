@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using DoubleEncryption.Models;
 using DoubleEncryption.Services;
 
@@ -13,9 +14,11 @@ namespace DoubleEncryption.Controllers
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
+        private AppSettings _appSettings { get; set; }
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController(ILogger<HomeController> logger, IOptions<AppSettings> settings)
         {
+            _appSettings = settings.Value; //ToDo: passare ai services?
             _logger = logger;
         }
 
